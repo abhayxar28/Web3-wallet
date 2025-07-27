@@ -1,11 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { generateMnemonic, mnemonicToSeedSync } from "bip39";
 import { derivePath } from "ed25519-hd-key";
-import { Keypair } from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import bs58 from "bs58";
 import { validateMnemonic } from "bip39";
 import { Input } from "./ui/input";
+
 import { Button } from "./ui/button";
 import {
   Accordion,
@@ -13,9 +14,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { CircleCheck, Copy, Eye, EyeOff, Trash } from "lucide-react";
+import { CircleCheck, Copy, Eye, EyeOff} from "lucide-react";
 import { toast } from "sonner";
 import DeleteWalletIndex from "./remove-wallet";
+import axios from "axios";
 
 export default function GenerateWallet() {
   const [mnemonics, setMnemonics] = useState<string[]>([]);
@@ -23,7 +25,8 @@ export default function GenerateWallet() {
   const [derivationIndex, setDerivationIndex] = useState(0);
   const [seed, setSeed] = useState<Buffer | null>(null);
   const [input, setInput] = useState("");
-  const [isVisible, setIsVisible] = useState(false);
+  const [walletAmount, setWalletAmount] = useState<{[key: string]: number}>({});
+  const [visibleWallets, setVisibleWallets] = useState<{ [index: number]: boolean }>({});  
 
   const handleCopy = async (value: string[]) => {
     await navigator.clipboard.writeText(value.join(" ")) 
@@ -116,13 +119,43 @@ export default function GenerateWallet() {
     })
   };
 
-  const handleVisible = ()=>{
-    if(!isVisible){
-      setIsVisible(true);
-    }else{
-      setIsVisible(false);
-    }
-  }
+  const handleVisible = (index: number) => {
+    setVisibleWallets((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
+  };
+
+
+  useEffect(()=>{
+
+      const getWalletAmount = async()=>{               
+        if (wallets.length === 0) return;
+
+        const balances: {[key: string]: number} = {}
+
+        await Promise.all(
+          wallets.map(async(wallet)=>{
+            try{
+              const res = await axios.post("https://solana-devnet.g.alchemy.com/v2/-jyOnsatlVdZ5yMtdxZTb", {
+                jsonrpc: "2.0",
+                id: 1,
+                method: "getBalance",
+                params: [wallet.publicKey],
+              });
+
+              const balance = res.data.result.value / LAMPORTS_PER_SOL;
+              balances[wallet.publicKey] = balance
+            }catch(err){
+
+            }
+          })
+        )
+        setWalletAmount(balances);
+      }
+
+      getWalletAmount();
+  },[wallets])
 
   return (
     <div className="p-4 space-y-6">
@@ -206,17 +239,22 @@ export default function GenerateWallet() {
               <div className="bg-[#171717] p-6 rounded-t-2xl ">
                 <div className="pb-2">
                   <label className="font-semibold text-lg">Public Key</label>
-                  <p className="break-all py-2 text-[#cccccc] hover:text-white cursor-pointer" onClick={()=>handlePublicCopy(wallet.publicKey)}>{wallet.publicKey}</p>
+                  <div className="flex justify-between">
+                    <p className="break-all py-2 text-[#cccccc] hover:text-white cursor-pointer" onClick={()=>handlePublicCopy(wallet.publicKey)}>{wallet.publicKey}</p>
+                    <div className="text-white">
+                      {walletAmount[wallet.publicKey]} SOL
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <label className="font-semibold text-lg">Private Key</label>
                   <div className="flex justify-between items-center pt-2">
                     <div className="text-[#cccccc] hover:text-white cursor-pointer" onClick={()=>handlePrivateCopy(wallet.privateKey)}>
-                      {isVisible ? <p className="break-all" >{wallet.privateKey.slice(0,55)}...</p>: <p>{"•".repeat(70)}</p> }
+                      {visibleWallets[index] ? <p className="break-all" >{wallet.privateKey.slice(0,55)}...</p>: <p>{"•".repeat(70)}</p> }
                     </div>
                     <div className="text-[#cccccc]">
-                      <button onClick={handleVisible} className="cursor-pointer">
-                        {isVisible ? <Eye size={15}/> : <EyeOff size={15}/>}
+                      <button onClick={()=>handleVisible(index)} className="cursor-pointer">
+                        {visibleWallets[index] ? <Eye size={15}/> : <EyeOff size={15}/>}
                       </button>
                     </div>
                   </div>

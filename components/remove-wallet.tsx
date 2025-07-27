@@ -33,8 +33,8 @@ export default function DeleteWalletIndex({deleteWalletAtIndex, index}: DeleteWa
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={()=>deleteWalletAtIndex(index)}>Continue</AlertDialogAction>
+                <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={()=>deleteWalletAtIndex(index)} className="cursor-pointer">Continue</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
